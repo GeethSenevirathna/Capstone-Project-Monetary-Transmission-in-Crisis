@@ -1,0 +1,157 @@
+---
+title: "M2b"
+author: "PS_2021_060"
+date: "2025-12-26"
+output: word_document
+---
+
+```{r}
+# Install packages ONLY ONCE
+# install.packages(c("readxl", "forecast", "tseries", "ggplot2"))
+
+library(readxl)
+library(forecast)
+library(tseries)
+library(ggplot2)
+
+#Import data and create time series for M2b
+
+data <- read_excel("C:/Users/User/Documents/capstoneProjectDocument/Monetary_transmission_data_I.xlsx")
+
+M2b <- ts(data$M2b, start = c(2006, 1), frequency = 12)
+
+```
+
+```{r}
+#Plot M2b (visual inspection)
+ggplot(data, aes(x = DATE, y = M2b)) +
+  geom_line(color = "blue") +
+  geom_point(color = "red", size = 1) +
+  geom_smooth(method = "loess", se = FALSE, color = "darkgreen") +
+  labs(title = "Time Series Plot of M2b",
+       x = "Time",
+       y = "M2b") +
+  theme_minimal()
+
+```
+```{r}
+#Interpretation
+
+#The time series plot of M2b shows a strong upward trend over the sample period, indicating that the series is non-stationary in mean. The increasing level over time suggests the presence of a unit root. Therefore, formal unit root tests and appropriate transformations are required before model estimation.
+```
+
+```{r}
+#Unit root tests
+adf.test(M2b)
+pp.test(M2b)
+kpss.test(M2b)
+
+```
+
+```{r}
+#Log transformation
+
+log_M2b <- log(M2b)
+
+plot(log_M2b,
+     main = "Log-transformed M2b",
+     ylab = "log(M2b)")
+
+```
+
+```{r}
+#Interpretation
+#Log transformation stabilizes the variance and converts exponential growth into linear growth.
+```
+
+```{r}
+#Differencing (trend + seasonal)
+diff_M2b <- diff(log_M2b)
+diff_seasonal_M2b <- diff(diff_M2b, lag = 12)
+plot(diff_seasonal_M2b,
+     main = "Differenced M2b (Trend + Seasonal)",
+     ylab = "Δlog(M2b)")
+
+
+```
+
+```{r}
+#Check stationarity after differencing
+adf.test(diff_seasonal_M2b)
+kpss.test(diff_seasonal_M2b)
+
+```
+
+```{r}
+#conclusion
+#After first and seasonal differencing, the M2b series becomes stationary.
+```
+
+```{r}
+#ACF & PACF plots (model identification)
+
+acf(diff_seasonal_M2b, main = "ACF of Stationary M2b")
+pacf(diff_seasonal_M2b, main = "PACF of Stationary M2b")
+
+```
+
+```{r}
+#Fit SARIMA model using auto.arima()
+auto_M2b <- auto.arima(log_M2b,
+                       seasonal = TRUE,
+                       stepwise = FALSE,
+                       approximation = FALSE)
+
+summary(auto_M2b)
+
+```
+
+```{r}
+#Model interpretation
+
+#The selected model is SARIMA ARIMA (0,1,3)(2,0,0)[12] with drift. This indicates that the M2b series requires one non-seasonal difference to remove trend, while seasonal patterns are captured by two seasonal autoregressive terms. The moving average terms explain short-run fluctuations, and the positive drift represents long-term growth in M2b. The low error measures show that the model fits the data well and is suitable for forecasting.
+
+```
+
+```{r}
+#Check accuracy using in-sample errors
+accuracy(auto_M2b)
+
+
+```
+```{r}
+#Residual diagnostics
+checkresiduals(auto_M2b)
+
+```
+```{r}
+#Interpretation:
+
+#Residuals should have no pattern
+#Ljung–Box p-value > 0.05 → model is adequate
+```
+
+```{r}
+#Out-of-sample accuracy
+train <- window(log_M2b, end = c(2022,12))
+test  <- window(log_M2b, start = c(2023,1))
+
+fit <- auto.arima(train, seasonal = TRUE)
+fc  <- forecast(fit, h = length(test))
+
+accuracy(fc, test)
+
+```
+```{r}
+#Conclusion
+#The accuracy of the fitted SARIMA model was evaluated using RMSE, MAE, and MAPE.
+#The low error values and satisfactory residual diagnostics indicate that the model
+#provides reliable in-sample performance and reasonable out-of-sample forecasting accuracy.
+
+```
+
+```{r}
+#Final conclusion
+#The M2b series is non-stationary at levels but becomes stationary after log transformation and first plus seasonal differencing. The selected SARIMA ARIMA (0,1,3)(2,0,0)[12] model fits the data well, shows satisfactory residual diagnostics, and provides reliable in-sample performance with reasonable forecasting accuracy.
+```
+
